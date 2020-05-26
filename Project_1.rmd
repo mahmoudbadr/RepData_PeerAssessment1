@@ -1,0 +1,126 @@
+---
+title: "Project_1"
+author: "Mahmoud Badr"
+date: "5/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Data
+```{r load, echo = TRUE }
+# Load data
+if (!file.exists("activity.csv") )
+    {
+     dlurl <- 'http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip'  
+     download.file(dlurl,destfile='repdata%2Fdata%2Factivity.zip',mode='wb')  
+     unzip('repdata%2Fdata%2Factivity.zip')
+    }
+
+# Read data
+data <- read.csv("activity.csv")  
+```
+
+## What is mean total number of steps taken per day?
+* Calculate the total number of steps taken per day
+* If you do not understand the difference between a histogram and a barplot, research the difference between them. Make a histogram of the total number of steps taken each day
+* Calculate and report the mean and median of the total number of steps taken per day
+
+```{r q1, echo = TRUE }
+steps_by_day <- aggregate(steps ~ date, data, sum)
+hist(steps_by_day$steps, main = paste("Total Steps Each Day"), col="green",xlab="Number of Steps")
+rmean <- mean(steps_by_day$steps)
+rmean
+rmedian <- median(steps_by_day$steps)
+rmedian
+```
+The mean is `r rmean` and the median is `r rmedian`
+
+## What is the average daily activity pattern?
+* Make a time series plot (i.e. \color{red}{\verb|type = "l"|}type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+* Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r q2, echo = TRUE }
+steps_by_interval <- aggregate(steps ~ interval, data, mean)
+plot(steps_by_interval$interval,steps_by_interval$steps, type="l", xlab="Interval", ylab="Number of Steps",main="Average Number of Steps per Day by Interval")
+max_interval <- steps_by_interval[which.max(steps_by_interval$steps),1]
+max_interval
+```
+The interval with most steps is `r max_interval`
+
+## Imputing missing values
+### Calculate and report the total number of missing values in the dataset
+```{r q3, echo = TRUE }
+NATotal <- sum(!complete.cases(data))
+NATotal
+```
+Total Number of Missing values are `r NATotal`
+
+### Using Mean for the day compute missing values
+```{r q4, echo = TRUE}
+StepsAverage <- aggregate(steps ~ interval, data = data, FUN = mean)
+fillNA <- numeric()
+for (i in 1:nrow(data)) {
+    obs <- data[i, ]
+    if (is.na(obs$steps)) {
+        steps <- subset(StepsAverage, interval == obs$interval)$steps
+    } else {
+        steps <- obs$steps
+    }
+    fillNA <- c(fillNA, steps)
+}
+```
+
+### Create a new dataset including the imputed missing values
+```{r q5, echo = TRUE}
+new_activity <- data
+new_activity$steps <- fillNA
+```
+
+### Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day.
+``` {r q6, echo = TRUE}
+StepsTotalUnion <- aggregate(steps ~ date, data = new_activity, sum, na.rm = TRUE)
+hist(StepsTotalUnion$steps, main = paste("Total Steps Each Day"), col="blue", xlab="Number of Steps")
+#Create Histogram to show difference. 
+hist(steps_by_day$steps, main = paste("Total Steps Each Day"), col="green", xlab="Number of Steps", add=T)
+legend("topright", c("Imputed", "Non-imputed"), col=c("blue", "green"), lwd=10)
+```
+
+### Calculate Mean
+```{r q7, echo = TRUE}
+rmeantotal <- mean(StepsTotalUnion$steps)
+rmeantotal
+```
+
+### Calculate Median
+```{r q8, echo = TRUE}
+rmediantotal <- median(StepsTotalUnion$steps)
+rmediantotal
+```
+
+### Do these values differ from the estimates from the first part of the assignment?
+```{r q9, echo = TRUE}
+rmediandiff <- rmediantotal - rmedian
+rmediandiff
+rmeandiff <- rmeantotal - rmean
+rmeandiff
+```
+The mean(Mean Var: `r rmeandiff`) is the same however the median does have a small variance(Median Var: `r rmediandiff`). between the total which includes the missing values to the base
+
+* What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+*On observation the impact of the missing data has the biggest effect on the 10000 - 150000 step interval and changes frequency from 27.5 to 35 a variance of 7.5*
+
+## Are there differences in activity patterns between weekdays and weekends?
+* Created a plot to compare and contrast number of steps between the week and weekend. There is a higher peak earlier on weekdays, and more overall activity on weekends.
+
+``` {r q10, echo = TRUE}
+weekdays <- c("Monday", "Tuesday", "Wednesday", "Thursday", 
+              "Friday")
+new_activity$dow = as.factor(ifelse(is.element(weekdays(as.Date(new_activity$date)),weekdays), "Weekday", "Weekend"))
+StepsTotalUnion <- aggregate(steps ~ interval + dow, new_activity, mean)
+library(lattice)
+xyplot(StepsTotalUnion$steps ~ StepsTotalUnion$interval|StepsTotalUnion$dow, main="Average Steps per Day by Interval",xlab="Interval", ylab="Steps",layout=c(1,2), type="l")
+```
